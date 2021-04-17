@@ -1,0 +1,27 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+use DBIx::Class::Schema::Loader qw( make_schema_at );
+use DBI;
+
+for my $i ( 1 .. 100 ) {
+    DBI->connect( 'dbi:Pg:host=psqldb;dbname=dbic', 'dbic', 'dbic' ) and last;
+    print "Connection failed, waiting " . $i * 2 . " seconds before trying to connect.\n";
+    sleep $i * 2;
+}
+
+make_schema_at(
+    $ARGV[0],
+    {
+        dump_directory     => '/app/lib',
+        schema_components  => [qw(Schema::Config)],
+        components         => [qw(InflateColumn::DateTime InflateColumn::Serializer)],
+        custom_column_info => sub {
+            my ( $table, $column_name, $column_info ) = @_;
+            if ( $column_info->{data_type} eq 'json' ) {
+                return { serializer_class => 'JSON' }
+            }
+        },
+    },
+    [ 'dbi:Pg:host=psqldb;dbname=dbic', 'dbic', 'dbic' ]
+);
