@@ -7,6 +7,6 @@ RUN apt-get update \
     && cpanm Archive::Zip LWP::UserAgent \
     && cpanm DBIx::Class DBIx::Class::Schema::Loader DBIx::Class::Schema::Config DBD::Pg \
         Crypt::Random Crypt::Eksblowfish::Bcrypt DBIx::Class::InflateColumn::DateTime \
-        DBIx::Class::InflateColumn::Serializer
+        DBIx::Class::InflateColumn::Serializer DBIx::Class::Schema::ResultSetNames
 
 COPY build-schema /bin/build-schema
