@@ -14,7 +14,7 @@ make_schema_at(
     $ARGV[0],
     {
         dump_directory     => '/app/lib',
-        schema_components  => [qw(Schema::Config)],
+        schema_components  => [qw(Schema::Config Schema::ResultSetNames)],
         components         => [qw(InflateColumn::DateTime InflateColumn::Serializer)],
         custom_column_info => sub {
             my ( $table, $column_name, $column_info ) = @_;
