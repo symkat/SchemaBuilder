@@ -1,17 +1,34 @@
 #!/usr/bin/env bash
 
-CLASS_NAME=$1
+if [[ -z "$1" ]]; then echo 'No argument provided. Was this intentional?'
+elif [[ "$2" ]]; then
+	echo 'This script only supports one argument per invocation. Aborting.'
+	exit 1
+fi
+CLASS_NAME="$1"
 
 # Generate a random 8 character name for the docker container that holds the PSQL
 # database.
-PSQL_NAME=$(cat /dev/urandom | LC_ALL=C tr -dc 'a-zA-Z' | fold -w 8 | head -n 1)
+PSQL_NAME=$(LC_ALL=C tr -dc 'a-zA-Z' < /dev/urandom | fold -w 8 | head -n 1)
+if [[ -z "$PSQL_NAME" ]]; then
+	echo 'Command failed: PSQL_NAME=$(LC_ALL=C tr -dc 'a-zA-Z' < /dev/urandom | fold -w 8 | head -n 1)'
+	exit 1
+fi
 
 # Launch a PSQL Instance
-PSQL_DOCKER=`docker run --rm --name $PSQL_NAME -e POSTGRES_PASSWORD=dbic -e POSTGRES_USER=dbic -e POSTGRES_DB=dbic -d \
-    --mount type=bind,src=$PWD/etc/schema.sql,dst=/docker-entrypoint-initdb.d/schema.sql postgres:11`
+PSQL_DOCKER=$(docker run --rm --name "$PSQL_NAME" -e POSTGRES_PASSWORD=dbic -e POSTGRES_USER=dbic -e POSTGRES_DB=dbic -d \
+    --mount "type=bind,src=$PWD/etc/schema.sql,dst=/docker-entrypoint-initdb.d/schema.sql" postgres:11)
+if [[ -z "$PSQL_DOCKER" ]]; then
+	echo 'Failed to launch PSQL instance.'
+	exit 1
+fi
 
-docker run --rm --link $PSQL_NAME:psqldb --mount type=bind,src=$PWD,dst=/app symkat/schema_builder /bin/build-schema $CLASS_NAME
+if ! docker run --rm --link "$PSQL_NAME:psqldb" --mount "type=bind,src=$PWD,dst=/app" symkat/schema_builder /bin/build-schema "$CLASS_NAME"; then
+	echo 'Initialisation may have failed. Proceeding anyway...'
+fi
 
-docker kill $PSQL_DOCKER
+docker kill "$PSQL_DOCKER"
 
-sudo chown -R $USER:$USER lib
+if [[ -d 'lib' ]]; then sudo chown -R "$USER:$USER" lib
+else echo 'Failed to find lib directory. This should have been created automatically.'
+fi
