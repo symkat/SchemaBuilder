@@ -19,21 +19,53 @@ Add the following script to `bin/create-classes`
 ```bash
 #!/usr/bin/env bash
 
-CLASS_NAME=$1
+CLASS_NAME="$1"
 
-# Generate a random 8 character name for the docker container that holds the PSQL
-# database.
-PSQL_NAME=$(cat /dev/urandom | LC_ALL=C tr -dc 'a-zA-Z' | fold -w 8 | head -n 1)
+if [ -z $CLASS_NAME ]; then
+    echo "Please call this script as $0 Your::Schema"
+    exit 1
+fi
+
+
+# Generate a random 8 character name for the docker container that holds the PSQL database.
+PSQL_NAME=$(LC_ALL=C tr -dc 'a-zA-Z' < /dev/urandom | fold -w 8 | head -n 1)
+if [ -z "$PSQL_NAME" ]; then
+    echo 'Command failed: PSQL_NAME=$(LC_ALL=C tr -dc 'a-zA-Z' < /dev/urandom | fold -w 8 | head -n 1)'
+    exit 1
+fi
 
 # Launch a PSQL Instance
-PSQL_DOCKER=`docker run --rm --name $PSQL_NAME -e POSTGRES_PASSWORD=dbic -e POSTGRES_USER=dbic -e POSTGRES_DB=dbic -d \
-    --mount type=bind,src=$PWD/etc/schema.sql,dst=/docker-entrypoint-initdb.d/schema.sql postgres:11`
+PSQL_DOCKER=$(docker run --rm --name "$PSQL_NAME" -e POSTGRES_PASSWORD=dbic -e POSTGRES_USER=dbic -e POSTGRES_DB=dbic -d \
+    --mount "type=bind,src=$PWD/etc/schema.sql,dst=/docker-entrypoint-initdb.d/schema.sql" postgres:13)
 
-docker run --rm --link $PSQL_NAME:psqldb --mount type=bind,src=$PWD,dst=/app symkat/schema_builder /bin/build-schema $CLASS_NAME
+if [ -z "$PSQL_DOCKER" ]; then
+	echo "Failed to get id for PSQL docker container."
+	exit 1
+fi
 
-docker kill $PSQL_DOCKER
+echo "Loading DB schema...."
 
-sudo chown -R $USER:$USER lib
+# Give a few seconds for the database to come up, then if it's existed there is likely an issue
+# with the schema.
+sleep 5;
+
+PSQL_DOCKER_COUNT=$(docker ps --filter id=$PSQL_DOCKER | wc -l)
+
+if [ $PSQL_DOCKER_COUNT -ne 2 ]; then
+    echo 'Failed to load schema, view error with the following:'
+    echo 'docker run --rm -e POSTGRES_PASSWORD=password --mount "type=bind,src=$PWD/etc/schema.sql,dst=/docker-entrypoint-initdb.d/schema.sql" postgres:13'
+    exit -1;
+fi
+
+docker run --rm --link "$PSQL_NAME:psqldb" --mount "type=bind,src=$PWD,dst=/app" symkat/schema_builder:3 /bin/build-schema "$CLASS_NAME"
+
+docker kill "$PSQL_DOCKER"
+
+if [ -d 'lib' ]; then 
+    sudo chown -R "$USER:$USER" lib
+else 
+    echo 'Failed to find lib directory. This should have been created automatically.'
+fi
 ```
 
 Create your schema in `etc/schema.sql`, this is an example.
@@ -62,7 +94,7 @@ create TABLE person_settings (
 );
 ```
 
-Once these files are in place, run `./bin/create-classes`
+Once these files are in place, run `./bin/create-classes My::Schema`
 
 ```
 $ chmod u+x bin/create-classes
