@@ -36,7 +36,7 @@ fi
 
 # Launch a PSQL Instance
 PSQL_DOCKER=$(docker run --rm --name "$PSQL_NAME" -e POSTGRES_PASSWORD=dbic -e POSTGRES_USER=dbic -e POSTGRES_DB=dbic -d \
-    --mount "type=bind,src=$PWD/etc/schema.sql,dst=/docker-entrypoint-initdb.d/schema.sql" postgres:13)
+    --mount "type=bind,src=$PWD/etc/schema.sql,dst=/docker-entrypoint-initdb.d/schema.sql" postgres:15)
 
 if [ -z "$PSQL_DOCKER" ]; then
 	echo "Failed to get id for PSQL docker container."
@@ -53,11 +53,11 @@ PSQL_DOCKER_COUNT=$(docker ps --filter id=$PSQL_DOCKER | wc -l)
 
 if [ $PSQL_DOCKER_COUNT -ne 2 ]; then
     echo 'Failed to load schema, view error with the following:'
-    echo 'docker run --rm -e POSTGRES_PASSWORD=password --mount "type=bind,src=$PWD/etc/schema.sql,dst=/docker-entrypoint-initdb.d/schema.sql" postgres:13'
+    echo 'docker run --rm -e POSTGRES_PASSWORD=password --mount "type=bind,src=$PWD/etc/schema.sql,dst=/docker-entrypoint-initdb.d/schema.sql" postgres:15'
     exit -1;
 fi
 
-docker run --rm --link "$PSQL_NAME:psqldb" --mount "type=bind,src=$PWD,dst=/app" symkat/schema_builder:3 /bin/build-schema "$CLASS_NAME"
+docker run --rm --link "$PSQL_NAME:psqldb" --mount "type=bind,src=$PWD,dst=/app" symkat/schema_builder:4 /bin/build-schema "$CLASS_NAME"
 
 docker kill "$PSQL_DOCKER"
 
